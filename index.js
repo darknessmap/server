@@ -2,91 +2,162 @@
 var darkness = require('./lib/darknessmap-server');
 darkness.awesome();
 */
+
+/**
+ * Load our config. It uses default values
+ * set on config.js and/or config.json
+ * which can be overriden if suplied by CLI.
+ */
+var config = require('./lib/config').config;
+// console.log('Config item ',config.get('ip'));
+
+/**
+ * We use express to power up the app.
+ * All routes reside @ routes/index.js
+ */
 var express = require('express');
 var app = express();
 app.configure(function(){
-    console.log('configure');
+    console.log('App: configure');
     app.use(express.bodyParser());
+    app.use(express.methodOverride());
     app.use(express.static(__dirname+'/public'));
-});
-app.get('/', function(req, res){
-    console.log('hello world');
-    res.writeHead(200,{'Content-Type':'text/html'});
-    res.end('Hello <b>World</b>');
+    app.use(app.router);
 });
 
-var http = require('http');
-var server = http.createServer(app);
 
-var transports = ['flashsocket', 'websocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'];
+/**
+ * We set up our routes
+ * for the general website.
+ */
+var routes = require('./routes');
+
+////////
+// WEB.
+////////
+app.get('/', routes.index);
+//error pages.
+app.get('/404', routes.e404);
+app.get('/500', routes.e505);
+
+////////
+// API.
+////////
+app.get('/api', routes.api);
+app.get('/api/darkness',routes.api.getDarkness);
+app.post('/api/darkness', routes.api.postDarkness);
+
+
+//Handle 404.
+app.use(routes.handle404);
+
+//Handle 505.
+app.use(routes.handle505);
+
+////////
+// SIO.
+////////
+
+//User hash.
+var users = {};
+
+//Filters for api mongo calls.
+var filters = {};
+filters.find = {loc:{$exists:true},payload:{$exists:true}};
+filters.keys = {loc:1,payload:1,time:1};
+
+var server = require('http').createServer(app);
+
 var io = require('socket.io').listen(server);
-io.set('transports', transports);
+io.set('transports', config.get('sio:transports'));
 
 io.sockets.on('connection', function(socket){
     console.log('==== connection here!');
-    socket.emit('sing', 'Hello fucking world!');
-    socket.emit('event',{user:'pepe'});
 
-    socket.on('hello',function(message){
-        socket.emit('event','I say: '+message);
+    /**
+     * Hanlde new users. Store a ref on socket.
+     *
+     */
+    socket.on('adduser', function(user){
+        console.log('==== on add user, with id: ',user);
+
+        if(users[user] === user){
+            console.log('==== user is user, error');
+            socket.emit('sign', {state: 0});
+        } else {
+            console.log('==== adding user');
+            socket.user = user;
+            users[user] = user;
+            socket.emit('sign', {state: 1});
+
+            //find where loc & payload are there,
+            //just get loc, payload & time
+            db.data.find(filters.find, filters.keys).toArray(function(error, data){
+                // Send objects to new client
+                socket.emit('darkness',data);
+            });
+
+            //Notify that we have a new user.
+            io.sockets.emit('userUpdate', users);
+        }
     });
 
+    /**
+     * Handle full data request. We might not need this, since
+     * we are already sending all on connect.
+     */
     socket.on('darkness',function(query){
-        console.log('this is darkness');
-        Data.find({},function(err,docs){
-            if(err) {throw err;}
-            socket.emit('objects',docs);
+        console.log('darkness request');
+        db.data.find(filters.find, filters.keys).toArray(function(error, data){
+            console.log('we have data ',data);
+            socket.emit('darkness',data);
         });
     });
-});
 
-server.listen(8080);
+    /**
+     *
+     *
+     */
+    /*socket.on('handle', function (data) {
+        Data.findById(data.obj[0], function(err, p) {
+            p.x=data.obj[1];
+            p.y=data.obj[2];
+            p.save();
+        });
 
-////////
-// Mongo
-////////
-var mongoose = require('mongoose');
+        //We send to all clients, except source
+        socket.broadcast.emit('handle', data);
+    });*/
 
-var Schema = mongoose.Schema;
-
-var Payload = new Schema();
-Payload.add({
-    uid : { type: String },
-    sid : { type:String},
-    loc : { type: Array },
-    payload : { type: Number },
-    time    : { type: Number }
-});
-
-// var db = mongoose.connect('mongodb://178.79.145.84/darknessmap');
-var db = mongoose.createConnection('localhost', 'darknessmap');
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', function () {
-  // yay!
-  console.log('mongoose yay');
-});
-
-var Payload = mongoose.model('data', Payload);
-var Data = mongoose.model('data');
-// List products
-app.get('/api/darkness', function (req, res) {
-    res.send('hello from here.....');
-    Data.findOne({ name: 'pepe' }, function (err, doc) {
-      if(err) return console.log('findone error');
-      doc.name = 'jason borne';
-      doc.save(callback);
+    /**
+     * Remove user from collection.
+     */
+    socket.on('disconnect', function(){
+        delete users[socket.user];
+        io.sockets.emit('userUpdate', users);
     });
-    Data.count(function (err, count) {
-        if (err) return console.log(err);
-        res.send(count);
-    });
-    res.send('<p>Unsure of what is going on</p>');
 });
+
+server.listen(config.get('http:port'));
+
 ////////
-// flash
+//Mongo
 ////////
-var pf = require('policyfile').createServer();
+var mgcf  = config.get('mongo');
+var mongo = require('mongodb-wrapper');
+// var db = mongo.db('178.79.145.84', 27017, 'darknessmap');
+var db = mongo.db(mgcf.ip, mgcf.port, mgcf.db);
+
+db.collection(mgcf.collection);
+
+//handle the db connection?
+routes.setDb(db);
+
+////////
+//Flash
+////////
+var pf = require('policyfile').createServer( );
 
 pf.listen(843, function(){
-  console.log('FlashPolicyServer...');
+  console.log('FlashPolicyServer: up and running...');
 });
