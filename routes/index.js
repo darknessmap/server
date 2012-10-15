@@ -45,11 +45,11 @@ exports.api.getDarkness = function(req,res){
  * API method to store sample data from device.
  * After storing in mongodb, it will dispatch
  * event to notify clients.
- */ 
+ */
 exports.api.postDarkness = function(req, res){
     // console.log("POST: ");
     // console.log(req.body);
-    mongo.data.insert(req.body, function(err, payload){
+    mongo.data.insert(req.body.data, function(err, payload){
         // console.log('Inserted our content');
         //Should we ensure data integrity?!
         res.send(payload);

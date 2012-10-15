@@ -1,3 +1,5 @@
+//https://github.com/nodejitsu/forever
+
 /*
 var darkness = require('./lib/darknessmap-server');
 darkness.awesome();
