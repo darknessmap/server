@@ -47,9 +47,11 @@ exports.api.getDarkness = function(req,res){
  * event to notify clients.
  */
 exports.api.postDarkness = function(req, res){
-    // console.log("POST: ");
-    // console.log(req.body);
-    mongo.data.insert(req.body.data, function(err, payload){
+    console.log("POST: ");
+    console.log(req.body.data);
+    console.log(typeof req.body.data);
+    var posted = JSON.parse( req.body.data );
+    mongo.data.insert(posted, function(err, payload){
         // console.log('Inserted our content');
         //Should we ensure data integrity?!
         res.send(payload);
