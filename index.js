@@ -32,7 +32,7 @@ app.configure(function(){
  * We set up our routes
  * for the general website.
  */
-var routes = require('./routes');
+var routes = require('./routes').router;
 
 ////////
 // WEB.
@@ -45,7 +45,7 @@ app.get('/500', routes.e505);
 ////////
 // API.
 ////////
-app.get('/api', routes.api);
+app.get('/api', routes.api.index);
 app.get('/api/darkness',routes.api.getDarkness);
 app.post('/api/darkness', routes.api.postDarkness);
 
@@ -64,7 +64,7 @@ app.use(routes.handle505);
 var users = {};
 
 //Filters for api mongo calls.
-var filters = {};
+var filters  = {};
 filters.find = {loc:{$exists:true},payload:{$exists:true}};
 filters.keys = {loc:1,payload:1,time:1};
 
@@ -75,6 +75,17 @@ io.set('transports', config.get('sio:transports'));
 
 io.sockets.on('connection', function(socket){
     console.log('==== connection here!');
+
+    /**
+     * Notify any loged in user of DB updates
+     * in real time, so we can render positions
+     * as they come in.
+     */
+    routes.on('darknessGetted', function(data){
+        console.log('ON DARKNESS INSIDE THE SOCKET');
+        socket.emit('darknessUpdate',data);
+    });
+
 
     /**
      * Hanlde new users. Store a ref on socket.
@@ -94,6 +105,7 @@ io.sockets.on('connection', function(socket){
 
             //find where loc & payload are there,
             //just get loc, payload & time
+            //TODO: Remove from here, we dont need it! :)
             db.data.find(filters.find, filters.keys).toArray(function(error, data){
                 // Send objects to new client
                 socket.emit('darkness',data);
