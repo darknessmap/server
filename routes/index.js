@@ -47,6 +47,17 @@ Api.prototype.index = function(req, res){
 Darknessmap.prototype.api = new Api();
 
 /**
+ *
+ *
+ */
+Api.prototype.android = function(req, res)
+{
+    //TODO: We want to pass a config value here.
+    //actually, serve a public/versions/android.json
+    res.sendfile('public/versions/android.txt');
+};
+
+/**
  * API method that returns all geo data.
  * It will group by session id.
  */

@@ -48,7 +48,7 @@ app.get('/500', routes.e505);
 app.get('/api', routes.api.index);
 app.get('/api/darkness',routes.api.getDarkness);
 app.post('/api/darkness', routes.api.postDarkness);
-
+app.get('/api/v/android',routes.api.android);
 
 //Handle 404.
 app.use(routes.handle404);
