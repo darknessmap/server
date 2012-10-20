@@ -81,7 +81,7 @@ io.sockets.on('connection', function(socket){
      * in real time, so we can render positions
      * as they come in.
      */
-    routes.on('darknessGetted', function(data){
+    routes.on('darknessPosted', function(data){
         console.log('ON DARKNESS INSIDE THE SOCKET');
         socket.emit('darknessUpdate',data);
     });
