@@ -5,9 +5,19 @@ Darknessmap node server.
 ## Getting Started
 Install the module with: `npm install darknessmap-server`
 
-```javascript
-var darknessmap_server = require('darknessmap-server');
-darknessmap_server.awesome(); // "awesome"
+Start `mongod`:
+```
+mongod --fork --logpath /var/log/mongodb/mongodb.log --dbpath /srv/db/mongodb
+```
+
+Cd to directory with darknessmap-server code, ie:
+```
+cd /srv/node/darknessmap-server
+```
+
+Start server using `forever`:
+```
+forever start -l forever.log -o out.log -e err.log index.js 
 ```
 
 ## Documentation
